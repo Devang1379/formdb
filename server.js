@@ -1,8 +1,9 @@
 import express from "express";
-import mysql from "mysql2";
+import pkg from "pg";
 import path from "path";
 import { fileURLToPath } from "url";
 
+const { Pool } = pkg;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -10,36 +11,32 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MySQL connection (use Neon DB instead of localhost)
-const db = mysql.createConnection({
-  host: "your-neon-host",   // example: ep-long-123456.ap-southeast-1.aws.neon.tech
-  user: "your-neon-username",
-  password: "your-neon-password",
-  database: "formdb",
-  ssl: { rejectUnauthorized: false }
+// PostgreSQL connection (Neon)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL, // set in Render
+  ssl: { rejectUnauthorized: false },         // Neon requires SSL
 });
 
-db.connect(err => {
-  if (err) throw err;
-  console.log("✅ MySQL (Neon) connected...");
-});
+// Test connection
+pool.connect()
+  .then(() => console.log("✅ Connected to Neon PostgreSQL"))
+  .catch(err => console.error("❌ DB Connection Error:", err));
 
-// serve frontend file
+// Serve frontend file
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(__dirname)); // serves index.html directly
 
-// API
-app.post("/submit", (req, res) => {
+// API: Insert data
+app.post("/submit", async (req, res) => {
   const { name } = req.body;
-  const sql = "INSERT INTO users (name) VALUES (?)";
-  db.query(sql, [name], (err, result) => {
-    if (err) {
-      console.error("❌ SQL Error:", err.sqlMessage);
-      return res.status(500).json({ message: "Database error: " + err.sqlMessage });
-    }
+  try {
+    await pool.query("INSERT INTO users (name) VALUES ($1)", [name]);
     res.json({ message: "Name saved successfully!" });
-  });
+  } catch (err) {
+    console.error("❌ SQL Error:", err.message);
+    res.status(500).json({ message: "Database error: " + err.message });
+  }
 });
 
 // Start server
