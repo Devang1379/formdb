@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";       // ✅ import cors
 import pkg from "pg";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -6,6 +7,16 @@ import { fileURLToPath } from "url";
 const { Pool } = pkg;
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ✅ CORS middleware
+app.use(cors({
+  origin: [
+    "https://devang.online",
+    "https://www.devang.online",
+    "https://formdb-vjwp.onrender.com"
+  ],
+  methods: ["GET", "POST"],
+}));
 
 // Middleware
 app.use(express.json());
